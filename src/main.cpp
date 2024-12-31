@@ -10,6 +10,57 @@
 
 raven::sqliteClass db;
 
+void testInsert()
+{
+    sqlite3 *db;
+    char *dbErrMsg;
+    sqlite3_stmt *stmt;
+
+    sqlite3_open("test.dat", &db);
+    sqlite3_exec(
+        db,
+        "PRAGMA synchronous=OFF",
+        0, 0, &dbErrMsg);
+    sqlite3_exec(
+        db,
+        "CREATE TABLE IF NOT EXISTS test "
+        " ( v );",
+        0, 0, &dbErrMsg);
+    sqlite3_prepare_v2(
+        db,
+        "INSERT INTO test "
+        "VALUES ( ?1 );",
+        -1,
+        &stmt,
+        0);
+
+    const int count = 500;
+
+    sqlite3_exec(
+        db,
+        "START TRANSACTION",
+        0, 0, &dbErrMsg);
+
+    {
+        raven::set::cRunWatch aWatcher("testInsert");
+
+        for (int k = 0; k < count; k++)
+        {
+            sqlite3_bind_int(stmt, 1, k);
+            int rc = sqlite3_step(stmt);
+            if (rc == SQLITE_DONE)
+            {
+                sqlite3_reset(stmt);
+            }
+        }
+    }
+    sqlite3_exec(
+        db,
+        "END TRANSACTION",
+        0, 0, &dbErrMsg);
+    std::cout << count << " inserts\n";
+}
+
 struct sFlight
 {
     int name;
@@ -130,8 +181,6 @@ void findConnections(int airportCount)
 
 */
 
-    std::vector<sFlight> vArrivals, vDeps;
-    std::vector<std::pair<sFlight, sFlight>> vConnects;
     auto stmtArrs = db.prepare(
         "SELECT * FROM flights "
         "WHERE arr = ?1;");
@@ -147,19 +196,24 @@ void findConnections(int airportCount)
     // loop over airports
     for (int ka = 0; ka < airportCount; ka++)
     {
+        std::vector<sFlight> vArrivals, vDeps;
+        std::vector<std::pair<sFlight, sFlight>> vConnects;
+
+        std::cout << "airport " << ka << "\n";
+
         // read arrivals at airport
         readArrivals(vArrivals, ka, stmtArrs);
 
         // read departures from airport
         readDeps(vDeps, ka, stmtDeps);
 
-        std::cout << "airport " << ka << " arrivals " << vArrivals.size()
-            << " deps " << vDeps.size() << "\n";
+        // std::cout << "airport " << ka << " arrivals " << vArrivals.size()
+        //           << " deps " << vDeps.size() << "\n";
 
         // connect arrivals to a later departures
+        db.exec("START TRANSACTION");
         for (auto &r : vArrivals)
         {
-            db.exec("START TRANSACTION");
             for (auto &d : vDeps)
             {
                 if (d.deptime > r.arrtime)
@@ -167,27 +221,24 @@ void findConnections(int airportCount)
                     // save arrival flight name and departure flight name
                     db.bind(stmtConx, 1, r.name);
                     db.bind(stmtConx, 2, d.name);
-                    db.exec(stmtConx,
-                            [&](raven::sqliteClassStmt &stmt) -> bool
-                            {
-                                return true;
-                            });
+                    // db.exec(stmtConx);
                 }
             }
-            db.exec("END TRANSACTION");
         }
+        db.exec("END TRANSACTION");
     }
 }
 
 main()
 {
     raven::set::cRunWatch::Start();
-    createDB();
-    const int flightCount = 100;
-    const int airportCount = 2;
-    std::cout << "Flights in DB " << flightCount << "\n";
-    gen(flightCount, airportCount);
-    findConnections(airportCount);
+    testInsert();
+    // createDB();
+    // const int flightCount = 1000;
+    // const int airportCount = 10;
+    // std::cout << "Flights in DB " << flightCount << "\n";
+    // gen(flightCount, airportCount);
+    // findConnections(airportCount);
     raven::set::cRunWatch::Report();
     return 0;
 }

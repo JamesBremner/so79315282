@@ -7,11 +7,11 @@ INCS = -I../sqliteClass/src \
 	-I../raven-set \
 	-I../../code_ext/boost/boost1_78 \
 
-LIBS = \
-	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs \
+# LIBS = \
+# 	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs \
 	#-mwindows
 
-static_link_flags = -static-libstdc++ -static-libgcc -static -lComctl32
+# static_link_flags = -static-libstdc++ -static-libgcc -static -lComctl32
 
 # folders
 ODIR = ./.vscode/obj
@@ -26,6 +26,11 @@ OBJ_starter = \
 	$(ODIR)/sqlite3.o \
 	$(ODIR)/cRunWatch.o \
 
+OBJ_test = \
+	$(ODIR)/testInsert.o \
+	$(ODIR)/sqlite3.o \
+	$(ODIR)/cRunWatch.o \
+
 ### COMPILE
 
 $(ODIR)/sqlite3.o : 
@@ -35,9 +40,14 @@ $(ODIR)/%.o: %.cpp
 	g++ $< \
 	-c -o $@  $(INCS) $(CCflags)
 
-starter: $(OBJ_starter)
+# starter: $(OBJ_starter)
+# 	g++ $(OPT) \
+# 	-o bin/starter.exe $^  \
+# 	$(static_link_flags) $(LIBS)
+
+starter: $(OBJ_test)
 	g++ $(OPT) \
-	-o bin/starter.exe $^  \
+	-o bin/test.exe $^  \
 	$(static_link_flags) $(LIBS)
 
 .PHONY: clean
